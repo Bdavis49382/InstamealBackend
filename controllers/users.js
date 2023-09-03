@@ -10,7 +10,6 @@ exports.getAll = async (req, res) => {
 
 exports.getOne = async (req, res) => {
     const response = await db.collection('users').doc(req.params.id).get();
-    console.log(req.params.id);
     res.send(response.data()).status(200);
 }
 

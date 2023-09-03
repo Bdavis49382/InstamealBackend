@@ -8,5 +8,7 @@ router.get('/:id',recipesController.getOne);
 router.get('/forUser/:id',recipesController.getForUser);
 router.get('/makeableForUser/:id',recipesController.getMakeableForUser);
 router.post('/create',recipesController.create);
+router.put('/update/:id',recipesController.update);
+router.delete('/delete/:id',recipesController.delete);
 
 module.exports = router;

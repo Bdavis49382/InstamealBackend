@@ -1,8 +1,7 @@
 
 const db = require('../config.js');
 
-const getRecipeUsers = async (doc) => {
-    const users = await db.collection('users').get();
+const getRecipeUsers =  (doc,users) => {
     const recipeUsers = []
     users.forEach(user => {
         if (doc.data().users.includes(user.id)) {
@@ -14,17 +13,24 @@ const getRecipeUsers = async (doc) => {
 }
 exports.getAll = async (req, res) => {
     const response = await db.collection('recipes').get();
+    const users = await db.collection('users').get();
     const recipes = []
-    response.forEach(async doc => {
-        recipes.push({...doc.data(),users:await getRecipeUsers(doc),id:doc.id})
+    response.forEach(  doc => {
+        recipes.push({...doc.data(),users: getRecipeUsers(doc,users),id:doc.id})
     }
     )
+    console.log(recipes);
     res.send(recipes).status(200);
 }
 
+exports.delete = async (req, res) => {
+    const response = await db.collection('recipes').doc(req.params.id).delete();
+    res.send(response).status(200);
+}
 exports.getOne = async (req, res) => {
     const response = await db.collection('recipes').doc(req.params.id).get();
-    res.send({...response.data(),id:response.id,users:await getRecipeUsers(response)}).status(200);
+    const users = await db.collection('users').get();
+    res.send({...response.data(),id:response.id,users:getRecipeUsers(response,users)}).status(200);
 }
 
 exports.getForUser = async (req, res) => {
@@ -92,6 +98,12 @@ exports.getMakeableForUser = async (req, res) => {
     const conversionTable = await db.collection('measures').get();
     // const checkedRecipes = await checkRecipes(recipes,inventory,conversionTable);
     res.send(await checkRecipes(recipes,inventory,conversionTable)).status(200);
+}
+
+exports.update = async (req, res) => {
+    const newRecipe = req.body;
+    const response = await db.collection('recipes').doc(req.params.id).set(newRecipe);
+    res.send(response).status(200);
 }
 
 exports.create = async (req, res) => {
