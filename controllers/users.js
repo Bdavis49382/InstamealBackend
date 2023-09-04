@@ -17,6 +17,9 @@ exports.updateIngredient = async (req, res) => {
     const response = await db.collection('users').doc(req.params.id).get();
     const user = response.data();
     user.inventory[req.body.ingredient].amount = req.body.newAmount;
+    if (req.body.measure) {
+        user.inventory[req.body.ingredient].measure = req.body.measure;
+    }
     const updateResponse = await db.collection('users').doc(req.params.id).set(user);
     res.send({msg:'successfully updated value'}).status(200);
 }
@@ -32,7 +35,7 @@ exports.deleteIngredient = async (req, res) => {
 exports.addIngredient = async (req, res) => {
     const response = await db.collection('users').doc(req.params.id).get();
     const user = response.data();
-    user.inventory[req.body.ingredient] = {"amount":req.body.amount,"measure":req.body.measure};
+    user.inventory[req.body.ingredient] = {"amount":req.body.amount,"measure":req.body.measure,"category":req.body.category};
     const addResponse = await db.collection('users').doc(req.params.id).set(user);
     res.send({msg:'added value'}).status(200);
 }
