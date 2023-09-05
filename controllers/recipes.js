@@ -90,6 +90,7 @@ const checkRecipes = (recipes,inventory,conversionTable) => {
 
 
 exports.getMakeableForUser = async (req, res) => {
+    try {
     const response = await db.collection('recipes').get();
     const recipes = [];
     response.forEach(doc => {
@@ -100,6 +101,10 @@ exports.getMakeableForUser = async (req, res) => {
     const conversionTable = await db.collection('measures').get();
     // const checkedRecipes = await checkRecipes(recipes,inventory,conversionTable);
     res.send(await checkRecipes(recipes,inventory,conversionTable)).status(200);
+    }
+    catch (error) {
+        res.send(error).status(400);
+    }
 }
 
 exports.update = async (req, res) => {
