@@ -54,7 +54,7 @@ const checkRecipes = (recipes,inventory,conversionTable) => {
             if (!inventory.hasOwnProperty(ingredientName)) {
                 recipe.makeable = false;
             }
-            else if (inventory[ingredientName].measure == recipe.ingredients[ingredientName].measure && inventory[ingredientName].amount < recipe.ingredients[ingredientName].amount) {
+            else if (inventory[ingredientName].measure == recipe.ingredients[ingredientName].measure && Number(inventory[ingredientName].amount) < Number(recipe.ingredients[ingredientName].amount)) {
                 recipe.makeable = false;
             }
             else {
@@ -66,7 +66,7 @@ const checkRecipes = (recipes,inventory,conversionTable) => {
                     if (conversions.hasOwnProperty(recipe.ingredients[ingredientName].measure) && conversions.hasOwnProperty(inventory[ingredientName].measure)) {
                         // console.log('amount in recipe',conversions[recipe.ingredients[ingredientName].measure][inventory[ingredientName].measure] * recipe.ingredients[ingredientName].amount)
                         // console.log('amount in inventory',inventory[ingredientName].amount)
-                        if (conversions[recipe.ingredients[ingredientName].measure][inventory[ingredientName].measure] * recipe.ingredients[ingredientName].amount > inventory[ingredientName].amount) {
+                        if (conversions[recipe.ingredients[ingredientName].measure][inventory[ingredientName].measure] * Number(recipe.ingredients[ingredientName].amount) > Number(inventory[ingredientName].amount)) {
                             recipe.makeable = false;
                         }
                         else {
