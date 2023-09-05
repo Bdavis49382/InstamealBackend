@@ -2,12 +2,13 @@
 const db = require('../config.js');
 
 const getRecipeUsers =  (doc,users) => {
-    const recipeUsers = []
-    users.forEach(user => {
-        if (doc.data().users.includes(user.id)) {
-            recipeUsers.push({...user.data(),id:user.id});
-        }
-    })
+    // const recipeUsers = []
+    // users.forEach(user => {
+    //     if (doc.data().users.includes(user.id)) {
+    //         recipeUsers.push({...user.data(),id:user.id});
+    //     }
+    // })
+    const recipeUsers = doc.data().users;
     return recipeUsers;
 
 }
@@ -119,6 +120,21 @@ exports.updateIngredients = async (req, res) => {
         console.log(err);
     }
 }
+exports.updateIngredient = async (req, res) => {
+    const changes = {}
+    changes['ingredients.' + req.body.name] = {amount:req.body.amount,measure:req.body.measure};
+    const updateResponse = await db.collection('recipes').doc(req.params.id).update(changes);
+    res.send(updateResponse).status(200);
+    
+}
+const {FieldValue} = require('firebase-admin/firestore');
+exports.deleteIngredient = async (req, res) => {
+    const changes = {}
+    changes['ingredients.' + req.body.name] = FieldValue.delete();
+    const updateResponse = await db.collection('recipes').doc(req.params.id).update(changes);
+    res.send(updateResponse).status(200);
+}
+
 exports.create = async (req, res) => {
     try {
         const recipe = req.body;
