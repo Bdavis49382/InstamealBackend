@@ -33,6 +33,7 @@ exports.getOne = async (req, res) => {
     res.send({...response.data(),id:response.id,users:getRecipeUsers(response,users)}).status(200);
 }
 
+
 exports.getForUser = async (req, res) => {
     const response = await db.collection('recipes').get();
     const filteredRecipes = []
@@ -106,6 +107,18 @@ exports.update = async (req, res) => {
     res.send(response).status(200);
 }
 
+exports.updateIngredients = async (req, res) => {
+    // const response = await db.collection('recipes').doc(req.params.id).get()
+    // const recipe = await response.json();
+    // recipe.ingredients = req.body;
+    try {
+        const updateResponse = await db.collection('recipes').doc(req.params.id).update({ingredients:req.body});
+        res.send(updateResponse).status(200);
+    }
+    catch (err) {
+        console.log(err);
+    }
+}
 exports.create = async (req, res) => {
     try {
         const recipe = req.body;
