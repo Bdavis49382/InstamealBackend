@@ -8,8 +8,10 @@ const getRecipeUsers =  (doc,users) => {
     //         recipeUsers.push({...user.data(),id:user.id});
     //     }
     // })
-    const recipeUsers = doc.data().users;
-    return recipeUsers;
+    if (doc.data()) {
+        const recipeUsers = doc.data().users;
+        return recipeUsers;
+    }
 
 }
 exports.getAll = async (req, res) => {
@@ -34,6 +36,18 @@ exports.getOne = async (req, res) => {
     res.send({...response.data(),id:response.id,users:getRecipeUsers(response,users)}).status(200);
 }
 
+const sortRecipes = (recipe1,recipe2) => {
+    if (recipe1.name.toLowerCase() < recipe2.name.toLowerCase()) {
+        return -1;
+    }
+    else if (recipe1.name.toLowerCase() > recipe2.name.toLowerCase()) {
+        return 1;
+    }
+    else {
+        return 0;
+    }
+}
+
 
 exports.getForUser = async (req, res) => {
     const response = await db.collection('recipes').get();
@@ -43,7 +57,7 @@ exports.getForUser = async (req, res) => {
             filteredRecipes.push({...doc.data(),id: doc.id});
         }
     })
-    res.send(filteredRecipes).status(200);
+    res.send(filteredRecipes.sort(sortRecipes)).status(200);
 }
 const greaterAmount = (ingredient1,ingredient2,conversions) => {
     if (ingredient1.measure === ingredient2.measure) {
