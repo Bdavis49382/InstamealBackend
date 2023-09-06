@@ -45,47 +45,23 @@ exports.getForUser = async (req, res) => {
     })
     res.send(filteredRecipes).status(200);
 }
-
-const checkRecipes = (recipes,inventory,conversionTable) => {
-    recipes.forEach(recipe => {
-        recipe.makeable = true;
-        recipe.makeableScore = 0;
-        Object.keys(recipe.ingredients).forEach(async ingredientName => {
-            if (!inventory.hasOwnProperty(ingredientName)) {
-                recipe.makeable = false;
-            }
-            else if (inventory[ingredientName].measure == recipe.ingredients[ingredientName].measure && Number(inventory[ingredientName].amount) < Number(recipe.ingredients[ingredientName].amount)) {
-                recipe.makeable = false;
-            }
-            else {
-                if (inventory[ingredientName].measure !== recipe.ingredients[ingredientName].measure) {
-                    const conversions = {}
-                    conversionTable.forEach(async unit => {
-                        conversions[unit.id] = unit.data();
-                    })
-                    if (conversions.hasOwnProperty(recipe.ingredients[ingredientName].measure) && conversions.hasOwnProperty(inventory[ingredientName].measure)) {
-                        // console.log('amount in recipe',conversions[recipe.ingredients[ingredientName].measure][inventory[ingredientName].measure] * recipe.ingredients[ingredientName].amount)
-                        // console.log('amount in inventory',inventory[ingredientName].amount)
-                        if (conversions[recipe.ingredients[ingredientName].measure][inventory[ingredientName].measure] * Number(recipe.ingredients[ingredientName].amount) > Number(inventory[ingredientName].amount)) {
-                            recipe.makeable = false;
-                        }
-                        else {
-                            recipe.makeableScore++;
-                        }
-                    }
-                    else {
-                        console.log('unknown measure, assuming unavailable');
-                        recipe.makeable = false;
-                        recipe.makeableScore++;
-                    }
-                }
-                else {
-                    recipe.makeableScore++;
-                }
-            }
-        })
+const greaterAmount = (ingredient1,ingredient2,conversions) => {
+    if (ingredient1.measure === ingredient2.measure) {
+        return Number(ingredient1.amount) > Number(ingredient2.amount);
+    }
+    else if (conversions.hasOwnProperty(ingredient1.measure) && conversions.hasOwnProperty(ingredient2.measure)) {
+        return Number(ingredient1.amount) * conversions[ingredient1.measure][ingredient2.measure] > Number(ingredient2.amount)
+    }
+    else {
+        return false;
+    }
+}
+const checkRecipes = (recipes,inventory,conversions) => {
+    return recipes.map(recipe => {
+        const missingIngredients = Object.keys(recipe.ingredients)
+            .filter(ingredientName => !inventory.hasOwnProperty(ingredientName) || (inventory.hasOwnProperty(ingredientName) && greaterAmount(recipe.ingredients[ingredientName],inventory[ingredientName],conversions)))
+        return {...recipe,makeable:missingIngredients.length==0,missingIngredients}
     })
-    return recipes;
 }
 
 
@@ -94,13 +70,18 @@ exports.getMakeableForUser = async (req, res) => {
     const response = await db.collection('recipes').get();
     const recipes = [];
     response.forEach(doc => {
-        recipes.push(doc.data())
+        if (doc.data().users.includes(req.params.id)) {
+            recipes.push(doc.data())
+        }
     })
     const userInfo = await db.collection('users').doc(req.params.id).get();
     const inventory = userInfo.data().inventory;
     const conversionTable = await db.collection('measures').get();
-    // const checkedRecipes = await checkRecipes(recipes,inventory,conversionTable);
-    res.send(await checkRecipes(recipes,inventory,conversionTable)).status(200);
+    const conversions = {}
+    conversionTable.forEach( unit => {
+        conversions[unit.id] = unit.data();
+    })
+    res.send(await checkRecipes(recipes,inventory,conversions)).status(200);
     }
     catch (error) {
         res.send(error).status(400);
