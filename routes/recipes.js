@@ -8,6 +8,7 @@ router.get('/:id',recipesController.getOne);
 router.get('/forUser/:id',recipesController.getForUser);
 router.get('/makeableForUser/:id',recipesController.getMakeableForUser);
 router.post('/create',recipesController.create);
+router.post('/make/:id/user=:uid',recipesController.make);
 router.post('/addIngredient/:id',recipesController.updateIngredient);
 router.put('/update/:id',recipesController.update);
 router.put('/updateIngredients/:id',recipesController.updateIngredients);

@@ -50,34 +50,49 @@ const sortRecipes = (recipe1,recipe2) => {
 
 
 exports.getForUser = async (req, res) => {
-    const response = await db.collection('recipes').get();
-    const filteredRecipes = []
-    response.forEach(async doc => {
-        if (doc.data().users.includes(req.params.id)) {
-            filteredRecipes.push({...doc.data(),id: doc.id});
-        }
-    })
-    res.send(filteredRecipes.sort(sortRecipes)).status(200);
+    try {
+
+        const response = await db.collection('recipes').get();
+        const filteredRecipes = []
+        response.forEach(async doc => {
+            if (doc.data().users.includes(req.params.id)) {
+                filteredRecipes.push({...doc.data(),id: doc.id});
+            }
+        })
+        res.send(filteredRecipes.sort(sortRecipes)).status(200);
+    }
+    catch (error) {
+        res.send(error).status(400);
+    }
 }
 const greaterAmount = (ingredient1,ingredient2,conversions) => {
+    // Returns how much greater the first ingredient is from the second
     if (ingredient1.measure === ingredient2.measure) {
-        return Number(ingredient1.amount) > Number(ingredient2.amount);
+        return Number(ingredient1.amount) - Number(ingredient2.amount);
     }
     else if (conversions.hasOwnProperty(ingredient1.measure) && conversions.hasOwnProperty(ingredient2.measure)) {
-        return Number(ingredient1.amount) * conversions[ingredient1.measure][ingredient2.measure] > Number(ingredient2.amount)
+        return Number(ingredient1.amount) * conversions[ingredient1.measure][ingredient2.measure] - Number(ingredient2.amount)
     }
     else {
-        return false;
+        return 0;
     }
 }
 const checkRecipes = (recipes,inventory,conversions) => {
     return recipes.map(recipe => {
         const missingIngredients = Object.keys(recipe.ingredients)
-            .filter(ingredientName => !inventory.hasOwnProperty(ingredientName) || (inventory.hasOwnProperty(ingredientName) && greaterAmount(recipe.ingredients[ingredientName],inventory[ingredientName],conversions)))
+            .filter(ingredientName => !inventory.hasOwnProperty(ingredientName) || (inventory.hasOwnProperty(ingredientName) && greaterAmount(recipe.ingredients[ingredientName],inventory[ingredientName],conversions) >= 0))
         return {...recipe,makeable:missingIngredients.length==0,missingIngredients}
     })
 }
 
+const getConversions = async () => {
+    const conversionTable = await db.collection('measures').get();
+    const conversions = {}
+    conversionTable.forEach( unit => {
+        conversions[unit.id] = unit.data();
+    })
+    return conversions;
+}
 
 exports.getMakeableForUser = async (req, res) => {
     try {
@@ -90,16 +105,41 @@ exports.getMakeableForUser = async (req, res) => {
     })
     const userInfo = await db.collection('users').doc(req.params.id).get();
     const inventory = userInfo.data().inventory;
-    const conversionTable = await db.collection('measures').get();
-    const conversions = {}
-    conversionTable.forEach( unit => {
-        conversions[unit.id] = unit.data();
-    })
+    const conversions = await getConversions();
     res.send(await checkRecipes(recipes,inventory,conversions)).status(200);
     }
     catch (error) {
         res.send(error).status(400);
     }
+}
+
+exports.make = async (req, res) => {
+    let response = await db.collection('recipes').doc(req.params.id).get();
+    const recipe = response.data();
+    response = await db.collection('users').doc(req.params.uid).get();
+    const inventory = response.data().inventory; 
+    const conversions = await getConversions();
+    console.log(inventory)
+    for ([item,value] of Object.entries(recipe.ingredients)) {
+        if (inventory.hasOwnProperty(item)) {
+            const amount_left = greaterAmount(inventory[item],value,conversions);
+            if (amount_left > 0) {
+                inventory[item].amount = amount_left;
+            }
+            else {
+                res.send({"msg":`There was not enough ${item} in the inventory. Low by ${amount_left}`});
+                return;
+            }
+
+        }
+        else {
+            res.send({"msg":`Inventory did not have ${item}`});
+            return;
+        }
+    } 
+    response = await db.collection('users').doc(req.params.uid).set({...response.data(),inventory})
+    res.send(response).status(200)
+
 }
 
 exports.update = async (req, res) => {

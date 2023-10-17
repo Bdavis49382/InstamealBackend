@@ -9,8 +9,14 @@ exports.getAll = async (req, res) => {
 }
 
 exports.getOne = async (req, res) => {
-    const response = await db.collection('users').doc(req.params.id).get();
-    res.send(response.data()).status(200);
+    try {
+
+        const response = await db.collection('users').doc(req.params.id).get();
+        res.send(response.data()).status(200);
+    }
+    catch (error) {
+        res.send(error).status(400);
+    }
 }
 
 exports.updateIngredient = async (req, res) => {
