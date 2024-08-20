@@ -1,5 +1,6 @@
 
 const db = require('../config.js');
+const idGen = require('uuid');
 
 const getRecipeUsers =  (doc,users) => {
     // const recipeUsers = []
@@ -167,7 +168,7 @@ exports.updateIngredient = async (req, res) => {
     res.send(updateResponse).status(200);
     
 }
-const {FieldValue} = require('firebase-admin/firestore');
+const {FieldValue, Timestamp} = require('firebase-admin/firestore');
 exports.deleteIngredient = async (req, res) => {
     const changes = {}
     changes['ingredients.' + req.body.name] = FieldValue.delete();
@@ -182,6 +183,109 @@ exports.create = async (req, res) => {
         res.send(response).status(200);
     }
     catch (error){
-        res.send({msg:"Error creating recipe" + error}).status(400);
+        res.send({msg:"Error creating recipe:" + error}).status(400);
+    }
+}
+
+exports.getChalkboard = async (req, res) => {
+    try {
+        const recipes = (await db.collection('recipes').doc(req.headers.householdid).get()).data();
+        res.send(Object.entries(recipes)
+            .map(([id,r]) => { return {id,...r}})
+            .filter(r => r.chalkboard));
+    }
+    catch (error) {
+        res.send({msg:"Error retrieving chalkboard: " + error}).status(400);
+    }
+}
+
+exports.addRecipeToChalkboard = async (req, res) => {
+    try {
+        const changes = {};
+        changes[req.params.id + '.chalkboard'] = true;
+        const updateResponse =await db.collection('recipes').doc(req.headers.householdid).update(changes);
+        res.send(updateResponse).status(200);
+    }
+    catch (error) {
+        res.send({msg:"Error adding to chalkboard: " + error}).status(400);
+    }
+}
+
+exports.getSuggestedRecipes = async (req, res) => {
+    try {
+        const recipes = (await db.collection('recipes').doc(req.headers.householdid).get()).data();
+        res.send(Object.entries(recipes)
+            .map(([id,r]) => {return {id,...r}})
+            .map(r => {
+                const daysSinceMade = r.lastMade ? (Date.now() - r.lastMade.toDate()) / 60000 / 60 / 24 : 50
+                const score = !r.chalkboard * ((daysSinceMade - 7) + (r.favorite * 14));
+                return {...r,score}
+            })
+            .filter( r => r.score > 0)
+            .sort((a,b) => b.score - a.score)
+        );
+    }
+    catch (error) {
+        res.send({msg:"Error retrieving recipes: " + error}).status(400);
+    }
+}
+
+exports.searchRecipes = async (req, res) => {
+    try {
+        const recipes = (await db.collection('recipes').doc(req.headers.householdid).get()).data();
+        const results = [];
+        const exactMatch = Object.entries(recipes).find(([id,r]) => r.name === req.body.name)
+        if (exactMatch) {
+            results.push({id:exactMatch[0],...exactMatch[1]});
+        }
+        // Also add any that have the substring in it.
+        results.push(...Object.entries(recipes)
+            .filter(([id,r]) => r.name !== req.body.name && r.name.includes(req.body.name))
+            .map(([id,r]) => {return {id,...r}}));
+        res.send(results);
+    }
+    catch (error) {
+        res.send({msg:"Error retrieving recipes: " + error}).status(400);
+    }
+}
+
+exports.saveRecipe = async (req, res) => {
+    try {
+        const recipe = req.body;
+        const uid = idGen.v4();
+        const newRecipe = {};
+        newRecipe[uid] = recipe
+        const response = await db.collection('recipes').doc(req.headers.householdid).update(newRecipe);
+        res.send(response).status(200);
+    }
+    catch (error) {
+        res.send({msg:"Error adding recipe: " + error}).status(400);
+    }
+}
+
+exports.makeRecipe = async (req, res) => {
+    try {
+        const changes = {};
+        changes[req.params.id + '.chalkboard'] = false;
+        changes[req.params.id + '.lastMade'] = Timestamp.now();
+        const updateResponse =await db.collection('recipes').doc(req.headers.householdid).update(changes);
+        res.send(updateResponse).status(200);
+    }
+    catch (error) {
+        res.send({msg:"Error removing from chalkboard: " + error}).status(400);
+    }
+}
+
+exports.toggleFavorite = async (req, res) => {
+    try {
+        const recipes = await db.collection('recipes').doc(req.headers.householdid).get();
+        const isFavorite = recipes.data()[req.params.id].favorite;
+        const changes = {};
+        changes[req.params.id + '.favorite'] = !isFavorite;
+        const updateResponse =await db.collection('recipes').doc(req.headers.householdid).update(changes);
+        res.send(updateResponse).status(200);
+    }
+    catch (error) {
+        res.send({msg:"Error toggling favorite: " + error}).status(400);
     }
 }
