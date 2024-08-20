@@ -15,6 +15,27 @@ const getRecipeUsers =  (doc,users) => {
     }
 
 }
+
+// Convert a recipe from the API to the form used by this program
+const getRecipe = (data) => {
+    const recipe = {
+        name: data.strMeal,
+        instructions: data.strInstructions,
+        img: data.strMealThumb,
+        ingredients: [],
+        reference: data.strSource,
+        score: Math.floor(Math.random()*31)
+    }
+    for (let i=1;i<=20;i++) {
+        if (data['strIngredient' + i].trim().length == 0) {
+            break;
+        }
+        recipe.ingredients.push(`${data['strMeasure' + i]} ${data['strIngredient' + i]}`)
+    }
+    return recipe
+}
+
+
 exports.getAll = async (req, res) => {
     const response = await db.collection('recipes').get();
     const users = await db.collection('users').get();
@@ -225,20 +246,7 @@ exports.getSuggestedRecipes = async (req, res) => {
         while (suggestions.length < 10) {
             const rand = await fetch("http://www.themealdb.com/api/json/v1/1/random.php");
             const data = (await rand.json()).meals[0];
-            const suggestion = {
-                name: data.strMeal,
-                instructions: data.strInstructions,
-                img: data.strMealThumb,
-                ingredients: [],
-                reference: data.strSource,
-                score: Math.floor(Math.random()*31)
-            }
-            for (let i=1;i<=20;i++) {
-                if (data['strIngredient' + i].trim().length == 0) {
-                    break;
-                }
-                suggestion.ingredients.push(`${data['strMeasure' + i]} ${data['strIngredient' + i]}`)
-            }
+            const suggestion = getRecipe(data);
             suggestions.push(suggestion)
         }
         res.send(suggestions
@@ -252,11 +260,15 @@ exports.getSuggestedRecipes = async (req, res) => {
 exports.searchRecipes = async (req, res) => {
     try {
         const recipes = (await db.collection('recipes').doc(req.headers.householdid).get()).data();
-        const results = [];
-        const exactMatch = Object.entries(recipes).find(([id,r]) => r.name === req.body.name)
+        let results = [];
+        const exactMatch = Object.entries(recipes).find(([id,r]) => r.name.toUpperCase() === req.body.name.toUpperCase())
         if (exactMatch) {
             results.push({id:exactMatch[0],...exactMatch[1]});
         }
+        const response = await fetch(`http://www.themealdb.com/api/json/v1/1/search.php?s=${req.body.name}`);
+        const APIRecipes = (await response.json()).meals;
+        results = results.concat(APIRecipes.map(r => getRecipe(r)))
+
         // Also add any that have the substring in it.
         results.push(...Object.entries(recipes)
             .filter(([id,r]) => r.name !== req.body.name && r.name.includes(req.body.name))
