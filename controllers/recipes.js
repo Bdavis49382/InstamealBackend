@@ -214,16 +214,35 @@ exports.addRecipeToChalkboard = async (req, res) => {
 exports.getSuggestedRecipes = async (req, res) => {
     try {
         const recipes = (await db.collection('recipes').doc(req.headers.householdid).get()).data();
-        res.send(Object.entries(recipes)
+        const suggestions = Object.entries(recipes)
             .map(([id,r]) => {return {id,...r}})
             .map(r => {
                 const daysSinceMade = r.lastMade ? (Date.now() - r.lastMade.toDate()) / 60000 / 60 / 24 : 50
-                const score = !r.chalkboard * ((daysSinceMade - 7) + (r.favorite * 14));
+                const score = !r.chalkboard * ((daysSinceMade - 14) + (r.favorite * 14) + (r.timesMade * 5));
                 return {...r,score}
             })
             .filter( r => r.score > 0)
-            .sort((a,b) => b.score - a.score)
-        );
+        while (suggestions.length < 10) {
+            const rand = await fetch("http://www.themealdb.com/api/json/v1/1/random.php");
+            const data = (await rand.json()).meals[0];
+            const suggestion = {
+                name: data.strMeal,
+                instructions: data.strInstructions,
+                img: data.strMealThumb,
+                ingredients: [],
+                reference: data.strSource,
+                score: Math.floor(Math.random()*31)
+            }
+            for (let i=1;i<=20;i++) {
+                if (data['strIngredient' + i].trim().length == 0) {
+                    break;
+                }
+                suggestion.ingredients.push(`${data['strMeasure' + i]} ${data['strIngredient' + i]}`)
+            }
+            suggestions.push(suggestion)
+        }
+        res.send(suggestions
+            .sort((a,b) => b.score - a.score));
     }
     catch (error) {
         res.send({msg:"Error retrieving recipes: " + error}).status(400);
